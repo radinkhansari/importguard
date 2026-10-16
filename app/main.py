@@ -20,8 +20,15 @@ def upload_csv(file: UploadFile):
         )
     reader = csv.DictReader(io.StringIO(text))
 
+    headers = reader.fieldnames or []
+    if len(headers) != len(set(headers)):
+        raise HTTPException(
+            status_code=400,
+            detail="Duplicate column names are not allowed"
+        )
+
     required_columns = {"name", "email"}
-    actual_columns = set(reader.fieldnames or [])
+    actual_columns = set(headers)
     missing_columns = required_columns - actual_columns
 
     if missing_columns:
@@ -32,20 +39,28 @@ def upload_csv(file: UploadFile):
 
     rows = list(reader)
     errors = []
-    for record_number, row in enumerate(rows, start = 1):
+
+    for record_number, row in enumerate(rows, start=1):
+        if None in row:
+            errors.append({
+                "record": record_number,
+                "field": None,
+                "message": "Record has more values than the header.",
+            })
+
         for column in ("name", "email"):
             value = row.get(column)
 
             if value is None or not value.strip():
                 errors.append({
-                    "record" : record_number,
-                    "field" : column,
-                    "message" : f"{column} is required.",
-
+                    "record": record_number,
+                    "field": column,
+                    "message": f"{column} is required.",
                 })
+
     return {
         "filename": file.filename,
         "row_count": len(rows),
         "rows": rows,
-        "errors" : errors,
+        "errors": errors,
     }
