@@ -10,7 +10,14 @@ def health():
 
 @app.post("/imports")
 def upload_csv(file: UploadFile):
-    contents = file.file.read()
+    max_bytes = 1024 * 1024
+    contents = file.file.read(max_bytes + 1)
+
+    if len(contents) > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail="File exceeds the 1 MiB size limit.",
+        )
     try:
         text = contents.decode("utf-8-sig")
     except UnicodeDecodeError:
@@ -18,9 +25,22 @@ def upload_csv(file: UploadFile):
             status_code=400,
             detail="The file must be UTF-8 encoded text.",
         )
-    reader = csv.DictReader(io.StringIO(text))
+    reader = csv.DictReader(io.StringIO(text), strict = True)
 
-    headers = reader.fieldnames or []
+    try:
+        headers = reader.fieldnames or []
+    except csv.Error:
+        raise HTTPException(
+        status_code=400,
+        detail="Malformed CSV. Check quotation marks and separators.",
+    )
+
+    if any(not header.strip() for header in headers):
+        raise HTTPException(
+            status_code=400,
+            detail="Column names cannot be blank.",
+        )  
+    
     if len(headers) != len(set(headers)):
         raise HTTPException(
             status_code=400,
@@ -36,8 +56,14 @@ def upload_csv(file: UploadFile):
             status_code=400,
             detail=f"Missing required columns: {', '.join(sorted(missing_columns))}",
     )
+    try:
+        rows = list(reader)
+    except csv.Error:
+        raise HTTPException(
+        status_code=400,
+        detail="Malformed CSV. Check quotation marks and separators.",
+    )
 
-    rows = list(reader)
     errors = []
 
     for record_number, row in enumerate(rows, start=1):
