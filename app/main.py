@@ -72,6 +72,7 @@ def upload_csv(file: UploadFile):
     )
     
     errors = []
+    seen_emails = {}
 
     for record_number, row in enumerate(rows, start=1):
         if None in row:
@@ -92,7 +93,7 @@ def upload_csv(file: UploadFile):
                 })
             elif column == "email":
                 try:
-                    validate_email(
+                    email_info = validate_email(
                         value.strip(),
                         check_deliverability=False,
                     )
@@ -102,10 +103,28 @@ def upload_csv(file: UploadFile):
                         "field": "email",
                         "message": str(exc),
                     })
+                else:
+                    email = email_info.normalized
+
+                    if email in seen_emails:
+                        errors.append({
+                            "record": record_number,
+                            "field": "email",
+                            "message": (
+                                f"Email duplicates record {seen_emails[email]}."
+                            ),
+                        })
+                    else:
+                        seen_emails[email] = record_number
+    invalid_records = {error["record"] for error in errors}
+    invalid_count = len(invalid_records)
+    valid_count = len(rows) - invalid_count        
 
     return {
-        "filename": file.filename,
-        "row_count": len(rows),
-        "rows": rows,
-        "errors": errors,
+    "filename": file.filename,
+    "row_count": len(rows),
+    "valid_count": valid_count,
+    "invalid_count": invalid_count,
+    "rows": rows,
+    "errors": errors,
     }
