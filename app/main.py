@@ -1,4 +1,5 @@
 from fastapi import FastAPI, UploadFile, HTTPException
+from email_validator import validate_email, EmailNotValidError
 import csv
 import io
 
@@ -64,6 +65,12 @@ def upload_csv(file: UploadFile):
         detail="Malformed CSV. Check quotation marks and separators.",
     )
 
+    if not rows:
+        raise HTTPException(
+            status_code=400,
+            detail="The CSV must contain at least one data record.",
+    )
+    
     errors = []
 
     for record_number, row in enumerate(rows, start=1):
@@ -83,6 +90,18 @@ def upload_csv(file: UploadFile):
                     "field": column,
                     "message": f"{column} is required.",
                 })
+            elif column == "email":
+                try:
+                    validate_email(
+                        value.strip(),
+                        check_deliverability=False,
+                    )
+                except EmailNotValidError as exc:
+                    errors.append({
+                        "record": record_number,
+                        "field": "email",
+                        "message": str(exc),
+                    })
 
     return {
         "filename": file.filename,
