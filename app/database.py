@@ -3,6 +3,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from sqlalchemy import URL, create_engine, text
+from sqlalchemy.orm import Session
 
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(env_path)
@@ -21,6 +22,11 @@ engine = create_engine(
     pool_pre_ping=True,
     connect_args={"connect_timeout": 5},
 )
+
+def get_db():
+    with Session(engine) as session:
+        yield session
+
 
 if __name__ == "__main__":
     with engine.connect() as connection:

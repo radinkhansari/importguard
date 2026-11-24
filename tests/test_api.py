@@ -1,11 +1,4 @@
-from fastapi.testclient import TestClient
-
-from app.main import app
-
-client = TestClient(app)
-
-
-def test_upload_valid_csv():
+def test_upload_valid_csv(client):
     contents = b"name,email\nAlice,alice@example.com\n"
 
     response = client.post(
@@ -26,7 +19,7 @@ def test_upload_valid_csv():
         {"name": "Alice", "email": "alice@example.com"}
     ]
 
-def test_upload_missing_email_column():
+def test_upload_missing_email_column(client):
     contents = b"name\nAlice\n"
 
     response = client.post(
@@ -39,7 +32,7 @@ def test_upload_missing_email_column():
         "detail": "Missing required columns: email"
     }
 
-def test_upload_too_large():
+def test_upload_too_large(client):
     contents = b"a" * (1024 * 1024 + 1)
 
     response = client.post(
